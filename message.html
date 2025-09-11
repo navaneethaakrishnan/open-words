@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Bug Report: YAP API Down</title>
+  <style>
+    :root {
+      --bg: #0b0b0d;
+      --panel: #0f1012;
+      --ink: #e8eef6;
+      --muted: #98a3b6;
+      --accent: #9b59ff;
+      --accent-2: #c78bff;
+      --accent-cta: #7a3aff;
+      --ok: #7ddea3;
+      --warn: #ffd166;
+      --crit: #ff6b6b;
+      --ring: rgba(155,89,255,0.28);
+      --shadow: 0 10px 30px rgba(0,0,0,.6);
+      --radius: 16px;
+      --tap-size: 48px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink); line-height: 1.65; background: var(--bg); overflow-x: hidden;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    .bg-wrap { position: fixed; inset: 0; perspective: 800px; z-index: 0; pointer-events: none; }
+    .bg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .bg-layer { position: absolute; inset: 0; background-position: center; background-size: cover; transform-origin: center; will-change: transform; transition: transform 0.12s linear; filter: saturate(.95) contrast(.95); }
+    .bg-layer.layer-back { transform: translateZ(-120px) scale(1.25); opacity: 0.95; }
+    .bg-layer.layer-mid { transform: translateZ(-60px) scale(1.1); opacity: 1; }
+    .bg-layer.layer-front { transform: translateZ(0px) scale(1); opacity: 1; mix-blend-mode: screen; }
+
+    .petal-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+
+    .wrap { position: relative; z-index: 3; max-width: 880px; margin: 48px auto; padding: 0 20px 64px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+    .title { font-weight:700; letter-spacing:.2px; font-size:clamp(22px,4vw,32px); display:flex; align-items:center; gap:10px; }
+
+    .card { margin-top:18px; background:var(--panel); border:1px solid rgba(255,255,255,.03); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .card h3 { margin:0; padding:16px 18px; font-size:14px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); border-bottom:1px solid rgba(255,255,255,.03); background: linear-gradient(180deg, rgba(255,255,255,.01), rgba(255,255,255,0)); }
+    .card .body { padding:20px; line-height:1.7; font-weight:400; }
+
+    ol { padding-left:20px; }
+
+    .hint { color:var(--muted); font-size:14px; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; padding:14px 18px; border-top:1px solid rgba(255,255,255,.03); background: linear-gradient(180deg, rgba(255,255,255,.01), transparent); }
+    .btn { appearance:none; border:1px solid transparent; background:var(--accent-cta); color:#ffffff; font-weight:600; letter-spacing:.2px; padding:14px 16px; border-radius:14px; cursor:pointer; transition: transform .05s ease, background .2s ease; min-height:var(--tap-size); flex:1; text-align:center; }
+    .btn:hover { transform: translateY(-1px); background:var(--accent-2); }
+    .btn.secondary { background:transparent; border:1px solid rgba(255,255,255,.06); color:var(--ink); box-shadow:none; }
+
+    .footer { margin-top:24px; color:var(--muted); text-align:center; font-size:14px; animation: fadeIn 1.2s ease forwards; opacity:0; }
+    .footer:active { color:var(--accent); transition: color 0.3s; }
+
+    #popup { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.7); z-index:9999; opacity:0; pointer-events:none; transition:opacity 0.3s ease; }
+    #popup.show { opacity:1; pointer-events:auto; }
+    #popup img { max-width:90%; max-height:80%; border-radius:12px; box-shadow:var(--shadow); }
+
+    dialog { width:min(720px,92vw); border:1px solid rgba(255,255,255,.04); border-radius:16px; background: linear-gradient(180deg, rgba(15,16,18,1), rgba(20,18,23,1)); color:var(--ink); box-shadow:var(--shadow); padding:0; }
+    dialog::backdrop { background: rgba(11,8,20,0.35); backdrop-filter: blur(6px); }
+    .dlg-head { padding:16px 18px; border-bottom:1px solid rgba(255,255,255,.03); color:var(--muted); text-transform:uppercase; font-size:13px; letter-spacing:.6px; }
+    .dlg-body { padding:18px; line-height:1.7; }
+    .dlg-actions { display:flex; gap:10px; padding:16px 18px; border-top:1px solid rgba(255,255,255,.03); justify-content:flex-end; }
+    textarea { width:100%; min-height:180px; resize:none; border-radius:12px; border:1px solid rgba(255,255,255,.04); background:rgba(11,11,13,0.85); color:var(--ink); padding:14px; font:inherit; line-height:1.7; }
+
+    @keyframes fadeIn { to { opacity:1; } }
+
+    @media (max-width:720px) {
+      .wrap { margin: 32px auto; padding: 0 16px 48px; }
+      .btn { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="popup">
+    <img src="https://i.pinimg.com/736x/a8/84/e1/a884e1c0ef6dc04d43348d7699f08fe3.jpg" alt="Popup" />
+  </div>
+
+  <div class="bg-wrap" aria-hidden="true">
+    <canvas class="bg-canvas" id="bgCanvas"></canvas>
+    <div class="bg-layer layer-back" id="bg-back" style="background-image: url('data:image/png;base64,<BASE64_DATA>');"></div>
+    <div class="bg-layer layer-mid" id="bg-mid" style="background-image: url('data:image/png;base64,<BASE64_DATA>');"></div>
+    <div class="bg-layer layer-front" id="bg-front" style="background-image: url('data:image/png;base64,<BASE64_DATA>'); filter: none; opacity: 0.98;"></div>
+    <canvas class="petal-canvas" id="petalCanvas"></canvas>
+  </div>
+
+  <main class="wrap">
+    <header>
+      <div class="title">Bug Report: YAP API Down </div>
+    </header>
+
+    <article class="card">
+      <h3>Summary</h3>
+      <div class="body">
+      <p>Sometimes people drift — not because they stop caring, but because of timing. There’s a gap between us now, and I won’t pretend it isn’t there. Still, I hope one day we might find a way back, even a little. What we did share felt easy, and I miss that. I’m not here to demand answers, only to leave behind what I couldn’t say before.</p>
+      <div class="actions">
+        <button class="btn" id="open-dm">View message</button>
+      </div>
+    </article>
+
+    <section class="card">
+      <h3>Steps to Reproduce</h3>
+      <div class="body">
+        <ol>
+          <li>Two people cross paths, light words and easy smiles.</li>
+          <li>Life shifts. Something slips.</li>
+          <li>Silence grows, but not from anger.</li>
+          <li>Distance settles in, leaving things unsaid.</li>
+          <li>A thread still lingers, quiet but unbroken.</li>
+          <li>Clarity could come if the time feels right.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Expected Result</h3>
+      <div class="body">
+        <p>A moment where honesty feels safe. Not to force, not to chase — just to let real words appear. Even the smallest gesture — a glance, a word spoken kindly — would be enough to show we still understand each other.</p>
+      </div>
+    </section>
+
+     <section class="card">
+      <h3>Actual Result</h3>
+      <div class="body">
+        <p>Right now, there’s mostly hesitation. Words left unsaid. Spaces that feel longer. No anger, no rejection — just quiet. I can live with that. But I want you to know: even in quiet, you still mattered to me, and what friendship we shared is still real.</p>
+        <p style="margin-top:12px; color:var(--muted); font-size:14px;">And yes — I still remember the lighter parts too: gym days, little talks, even the books we both liked. Not everything was heavy.</p>
+      </div>
+    </section>
+
+     <section class="card"> 
+      <h3>Notes</h3> 
+      <div class="body"> 
+        <p>I don’t know for sure why the distance grew. Maybe the moment wasn’t right, and I said something clumsily. Or maybe it was something else entirely. If I added to the weight you were already carrying, I’m sorry for that.</p> 
+        <p>What I do know is this: even the smallest connections deserve care, because it’s too easy to let people become strangers when they didn’t have to be. That’s why I’m saying this now, even if it changes nothing.</p> 
+      </div> 
+    </section>
+
+    <section class="card">
+      <h3>Suggested Fix</h3>
+      <div class="body">
+        <p>Things don’t have to stay broken forever. The first step is mine: to steady myself, to take responsibility, and to show that I mean this.</p>
+        <p>For now, silence is what we have. But if it can change, even in the smallest way, I’d want that. A word, a nod, or us simply hashing things out like adults.</p>
+        <p>What I offer isn’t pressure. Just patience, presence, and a door left open — only if you ever want to walk through it.</p>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" id="ack">Acknowledge</button>
+      </div>
+    </section>
+
+    <p class="footer">“Only a note of clarity, apology, and care — nothing more, nothing less.”</p>
+
+    <dialog id="dmDialog" aria-label="Message preview">
+      <div class="dlg-head">Message</div>
+      <div class="dlg-body">
+        <textarea readonly>
+Hey, old friend.
+
+I know life gets heavy, and sometimes silence feels easier than words. I don’t blame you for that. I just want you to know — I never thought your words were “too much.” They meant more to me than you probably realize.
+
+If this is how things stay, I’ll accept it. But if there’s ever a moment you feel like breaking the silence, even briefly, I’ll be here — steady, without demands.
+
+I’m only saying this because carrying it unsaid felt heavier than sharing it once, honestly. I didn’t want my silence to leave the wrong impression — that you or your words didn’t matter. They did. And if even a small part of you wants to share again, I’d listen.
+        </textarea>
+        <p class="hint">(This is yours now — what you do with it is up to you. I’ll leave it here.)</p>
+      </div>
+      <div class="dlg-actions">
+        <button class="btn secondary" id="closeDm">Close</button>
+      </div>
+    </dialog>
+  </main>
+
+  <script>
+    (function(){
+      const ack = document.getElementById('ack');
+      const popup = document.getElementById('popup');
+      if(ack && popup){
+        ack.addEventListener('click', ()=>{
+          popup.classList.add('show');
+          setTimeout(()=>{
+            popup.classList.remove('show');
+          }, 3000);
+        });
+      }
+    })();
+    (function(){
+      const base64 = "<BASE64_DATA>";
+      const back = document.getElementById('bg-back');
+      const mid = document.getElementById('bg-mid');
+      const front = document.getElementById('bg-front');
+      [back, mid, front].forEach(el => { el.style.backgroundImage = `url('data:image/png;base64,${base64}')`; });
+
+      let mouseX = 0, mouseY = 0, px = 0, py = 0;
+      document.addEventListener('mousemove', (e)=>{
+        const cx = window.innerWidth/2, cy = window.innerHeight/2;
+        mouseX = (e.clientX - cx) / cx;
+        mouseY = (e.clientY - cy) / cy;
+      });
+      function animate(){
+        px += (mouseX - px) * 0.08;
+        py += (mouseY - py) * 0.08;
+        back.style.transform = `translate3d(${px*8}px, ${py*8}px, -120px) scale(1.25)`;
+        mid.style.transform = `translate3d(${px*18}px, ${py*18}px, -60px) scale(1.12)`;
+        front.style.transform = `translate3d(${px*28}px, ${py*28}px, 0px) scale(1.02)`;
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      const bgCanvas = document.getElementById('bgCanvas');
+      const bgCtx = bgCanvas.getContext('2d');
+      let DPR = window.devicePixelRatio || 1;
+      function resizeBg(){ bgCanvas.width = window.innerWidth * DPR; bgCanvas.height = window.innerHeight * DPR; bgCanvas.style.width = window.innerWidth + 'px'; bgCanvas.style.height = window.innerHeight + 'px'; bgCtx.setTransform(DPR,0,0,DPR,0,0); }
+      window.addEventListener('resize', ()=>{ DPR = window.devicePixelRatio || 1; resizeBg(); });
+      resizeBg();
+
+      const blobs = [];
+      function rand(min,max){ return Math.random()*(max-min)+min; }
+      for(let i=0;i<7;i++){
+        blobs.push({ x: rand(0,window.innerWidth), y: rand(0,window.innerHeight), r: rand(120,420), vx: rand(-0.06,0.06), vy: rand(-0.03,0.03), hue: rand(270,330), alpha: rand(0.06,0.18) });
+      }
+      const stars = [];
+      for(let i=0;i<150;i++){ stars.push({ x: rand(0,window.innerWidth), y: rand(0,window.innerHeight), r: rand(0.2,1.2), a: rand(0.2,0.9), tw: rand(0.002,0.008) }); }
+
+      function drawBg(t){ bgCtx.clearRect(0,0,bgCanvas.width/DPR,bgCanvas.height/DPR);
+        for(let b of blobs){ b.x += b.vx; b.y += b.vy; if(b.x < -b.r) b.x = window.innerWidth + b.r; if(b.x > window.innerWidth + b.r) b.x = -b.r; if(b.y < -b.r) b.y = window.innerHeight + b.r; if(b.y > window.innerHeight + b.r) b.y = -b.r; const grd = bgCtx.createRadialGradient(b.x, b.y, b.r*0.05, b.x, b.y, b.r); grd.addColorStop(0, `hsla(${b.hue},80%,75%,${b.alpha})`); grd.addColorStop(0.5, `hsla(${b.hue+10},70%,60%,${b.alpha*0.6})`); grd.addColorStop(1, `hsla(${b.hue+30},60%,40%,0)`); bgCtx.globalCompositeOperation = 'lighter'; bgCtx.fillStyle = grd; bgCtx.beginPath(); bgCtx.arc(b.x, b.y, b.r, 0, Math.PI*2); bgCtx.fill(); }
+        bgCtx.globalCompositeOperation = 'source-over';
+        for(let s of stars){ s.a += Math.sin(t * s.tw) * 0.02; if(s.a<0) s.a=0.05; if(s.a>1) s.a=1; bgCtx.globalAlpha = s.a; bgCtx.fillStyle = '#fff'; bgCtx.beginPath(); bgCtx.arc(s.x, s.y, s.r, 0, Math.PI*2); bgCtx.fill(); }
+        bgCtx.globalAlpha = 1; requestAnimationFrame(drawBg);
+      }
+      requestAnimationFrame(drawBg);
+
+      const canvas = document.getElementById('petalCanvas');
+      const ctx = canvas.getContext('2d');
+      function resizePetals(){ canvas.width = window.innerWidth * DPR; canvas.height = window.innerHeight * DPR; canvas.style.width = window.innerWidth + 'px'; canvas.style.height = window.innerHeight + 'px'; ctx.setTransform(DPR,0,0,DPR,0,0); }
+      window.addEventListener('resize', resizePetals);
+      resizePetals();
+
+      const petals = [];
+      const colors = ['#f8c6d9','#f6b1d0','#f3a0cc','#ffdce8'];
+      for(let i=0;i<28;i++){
+        petals.push({ x: rand(0,window.innerWidth), y: rand(-window.innerHeight, window.innerHeight), r: rand(8,22), vx: rand(-0.3,0.6), vy: rand(0.2,1.2), rot: rand(0,Math.PI*2), drot: rand(-0.02,0.02), color: colors[Math.floor(rand(0,colors.length))], sway: rand(0.5,2) });
+      }
+      function drawPetal(p){ ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(p.r*0.5, -p.r*0.6, p.r, 0); ctx.quadraticCurveTo(p.r*0.2, p.r*0.6, 0,0); ctx.fillStyle = p.color; ctx.fill(); ctx.restore(); }
+      function step(){ ctx.clearRect(0,0,canvas.width/DPR, canvas.height/DPR); for(let p of petals){ p.x += p.vx + Math.sin(p.y * 0.01) * p.sway * 0.3; p.y += p.vy; p.rot += p.drot; if(p.y > window.innerHeight + 60){ p.y = -40; p.x = rand(0,window.innerWidth); } if(p.x < -60) p.x = window.innerWidth + 60; if(p.x > window.innerWidth + 60) p.x = -60; drawPetal(p); } requestAnimationFrame(step); }
+      step();
+
+      const dmDialog = document.getElementById('dmDialog');
+      const openBtn = document.getElementById('open-dm');
+      const closeBtn = document.getElementById('closeDm');
+      const ack = document.getElementById('ack');
+      if(openBtn && dmDialog && typeof dmDialog.showModal==='function'){ openBtn.addEventListener('click', ()=>dmDialog.showModal()); }
+      if(closeBtn && dmDialog){ closeBtn.addEventListener('click', ()=>dmDialog.close()); }
+      if(ack){ ack.addEventListener('click', ()=>toast('Thanks for reading — that’s enough.')); }
+      function toast(msg){ const t = document.createElement('div'); t.textContent = msg; t.style.position = 'fixed'; t.style.left = '50%'; t.style.bottom = '28px'; t.style.transform = 'translateX(-50%)'; t.style.background = 'var(--accent-cta)'; t.style.color = '#ffffff'; t.style.padding = '10px 14px'; t.style.border = '1px solid rgba(255,255,255,.06)'; t.style.borderRadius = '12px'; t.style.boxShadow = 'var(--shadow)'; t.style.zIndex = '99999'; t.style.fontWeight = '700'; document.body.appendChild(t); setTimeout(()=>{ t.style.transition = 'opacity .4s ease, transform .4s ease'; t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(8px)'; setTimeout(()=>t.remove(),450); },1600); }
+
+    })();
+  </script>
+</body>
+</html>
